@@ -1,0 +1,624 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Empire Script Forge — How Empires Fell</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@500;700;900&family=Spectral:ital,wght@0,400;0,500;0,600;1,400&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #0a1124;
+    --navy-2: #111c38;
+    --surface: #16213f;
+    --surface-2: #1d2a4d;
+    --line: #2a3a5e;
+    --line-strong: #3c4f78;
+    --gold: #d4af37;
+    --gold-bright: #f0cf66;
+    --ink: #eef1f7;
+    --ink-dim: #9aa6c0;
+    --ink-mute: #5f6d8c;
+    --good: #5fcf8e;
+    --bad: #e8745f;
+    --warn: #e8b65f;
+    --display: 'Cinzel', Georgia, serif;
+    --body: 'Spectral', Georgia, serif;
+    --mono: 'JetBrains Mono', ui-monospace, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    background: var(--navy);
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 16px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+    min-height: 100vh;
+  }
+  body {
+    background-image:
+      radial-gradient(ellipse 70% 50% at 50% -10%, rgba(212,175,55,0.10), transparent 65%),
+      radial-gradient(ellipse 60% 40% at 100% 110%, rgba(212,175,55,0.05), transparent 60%);
+    background-attachment: fixed;
+  }
+  .wrap { max-width: 920px; margin: 0 auto; padding: 48px 24px 90px; }
+
+  /* HEADER */
+  header.top { text-align: center; margin-bottom: 14px; }
+  .crest {
+    font-size: 30px; color: var(--gold);
+    letter-spacing: 0.3em; margin-bottom: 10px;
+  }
+  header.top h1 {
+    font-family: var(--display);
+    font-weight: 900;
+    font-size: clamp(30px, 6vw, 50px);
+    letter-spacing: 0.04em;
+    line-height: 1.05;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+  header.top .sub {
+    font-family: var(--mono);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.22em;
+    color: var(--ink-dim);
+    margin-top: 12px;
+  }
+  .rule {
+    width: 70px; height: 2px; margin: 22px auto 38px;
+    background: linear-gradient(90deg, transparent, var(--gold), transparent);
+  }
+
+  /* KEY BAR */
+  .key-bar {
+    display: flex; align-items: center; gap: 10px;
+    justify-content: center; flex-wrap: wrap;
+    font-family: var(--mono); font-size: 12px;
+    color: var(--ink-dim); margin-bottom: 30px;
+  }
+  .key-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--bad); }
+  .key-dot.on { background: var(--good); }
+  .key-bar button {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--surface); color: var(--ink-dim);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 12px; cursor: pointer; transition: 0.15s;
+  }
+  .key-bar button:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* INPUT CARD */
+  .card {
+    background: linear-gradient(160deg, var(--surface), var(--navy-2));
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 28px;
+    box-shadow: 0 24px 60px -30px rgba(0,0,0,0.8);
+  }
+  .card-label {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.18em;
+    color: var(--gold); margin-bottom: 12px;
+  }
+  .input-row { display: flex; gap: 12px; flex-wrap: wrap; }
+  #topic {
+    flex: 1; min-width: 220px;
+    background: var(--navy);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding: 15px 17px;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 17px;
+    transition: 0.15s;
+  }
+  #topic:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.12); }
+  #topic::placeholder { color: var(--ink-mute); font-style: italic; }
+
+  button.primary {
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color: var(--navy);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.05em;
+    border: none;
+    border-radius: 9px;
+    padding: 0 28px;
+    cursor: pointer;
+    transition: 0.15s;
+    white-space: nowrap;
+  }
+  button.primary:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 10px 26px -10px rgba(212,175,55,0.6); }
+  button.primary:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  .hint {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-mute); margin-top: 14px; line-height: 1.6;
+  }
+  .examples { margin-top: 14px; display: flex; gap: 7px; flex-wrap: wrap; }
+  .chip {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--navy); color: var(--ink-dim);
+    border: 1px solid var(--line); border-radius: 20px;
+    padding: 5px 12px; cursor: pointer; transition: 0.15s;
+  }
+  .chip:hover { border-color: var(--gold); color: var(--gold); }
+
+  /* STATUS / LOADER */
+  .status {
+    margin-top: 26px; text-align: center;
+    font-family: var(--mono); font-size: 13px;
+    color: var(--ink-dim);
+  }
+  .spinner {
+    width: 34px; height: 34px; margin: 0 auto 14px;
+    border: 3px solid var(--line);
+    border-top-color: var(--gold);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* RESULT BLOCKS */
+  .result { margin-top: 30px; }
+
+  .verdict {
+    border-radius: 12px;
+    padding: 20px 22px;
+    margin-bottom: 22px;
+    display: flex; gap: 16px; align-items: flex-start;
+  }
+  .verdict.pass { background: rgba(95,207,142,0.09); border: 1px solid rgba(95,207,142,0.4); }
+  .verdict.fail { background: rgba(232,116,95,0.09); border: 1px solid rgba(232,116,95,0.45); }
+  .verdict-icon { font-size: 26px; line-height: 1; flex-shrink: 0; }
+  .verdict-body h3 {
+    font-family: var(--display); font-weight: 700;
+    font-size: 17px; letter-spacing: 0.03em; margin-bottom: 6px;
+  }
+  .verdict.pass h3 { color: var(--good); }
+  .verdict.fail h3 { color: var(--bad); }
+  .verdict-body p { font-size: 15px; color: var(--ink-dim); }
+  .verdict-body .reselect {
+    margin-top: 10px; font-family: var(--mono); font-size: 12px;
+    color: var(--warn);
+  }
+
+  .section { margin-bottom: 24px; }
+  .section-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 10px;
+  }
+  .section-head .label {
+    font-family: var(--mono); font-size: 11px;
+    text-transform: uppercase; letter-spacing: 0.16em;
+    color: var(--gold);
+  }
+  .copy-btn {
+    font-family: var(--mono); font-size: 11px;
+    background: var(--surface-2); color: var(--ink-dim);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 13px; cursor: pointer; transition: 0.15s;
+  }
+  .copy-btn:hover { border-color: var(--gold); color: var(--gold); }
+  .copy-btn.done { color: var(--good); border-color: var(--good); }
+
+  .panel {
+    background: var(--navy-2);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 18px 20px;
+  }
+
+  .meta-grid {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px,1fr));
+    gap: 10px;
+  }
+  .meta-item {
+    background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 13px;
+  }
+  .meta-item .k {
+    font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-mute); margin-bottom: 3px;
+  }
+  .meta-item .v { font-size: 15px; color: var(--ink); font-weight: 500; }
+
+  .script-box {
+    background: var(--navy);
+    border: 1px solid var(--line-strong);
+    border-radius: 10px;
+    padding: 20px 22px;
+    font-size: 16px;
+    line-height: 1.85;
+    color: var(--ink);
+    white-space: pre-wrap;
+    max-height: 520px;
+    overflow-y: auto;
+  }
+  .script-box::-webkit-scrollbar { width: 9px; }
+  .script-box::-webkit-scrollbar-track { background: var(--navy-2); }
+  .script-box::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 5px; }
+  .script-box .tag { color: var(--gold); font-family: var(--mono); font-size: 13px; }
+  .script-box .brk { color: var(--ink-mute); font-family: var(--mono); font-size: 12px; }
+
+  .thumb-overlay { display: flex; flex-direction: column; gap: 9px; }
+  .ov-row {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; background: var(--surface); border: 1px solid var(--line);
+    border-radius: 8px; padding: 10px 13px;
+  }
+  .ov-tag {
+    font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--ink-mute);
+  }
+  .ov-brand { font-family: var(--display); font-weight: 900; font-size: 17px; color: var(--ink); text-transform: uppercase; }
+  .ov-hook {
+    font-family: var(--display); font-weight: 900; font-size: 18px;
+    display: inline-block; background: var(--gold); color: var(--navy);
+    padding: 3px 10px; border-radius: 5px; margin-top: 3px;
+  }
+
+  .note {
+    font-family: var(--mono); font-size: 11px;
+    color: var(--ink-mute); line-height: 1.6; margin-top: 10px;
+  }
+
+  /* MODAL */
+  .modal-bg {
+    position: fixed; inset: 0; background: rgba(5,8,18,0.85);
+    display: none; align-items: center; justify-content: center;
+    z-index: 50; padding: 20px;
+  }
+  .modal-bg.open { display: flex; }
+  .modal {
+    background: var(--surface); border: 1px solid var(--line-strong);
+    border-radius: 14px; padding: 28px; max-width: 460px; width: 100%;
+  }
+  .modal h3 { font-family: var(--display); font-size: 19px; color: var(--gold); margin-bottom: 8px; }
+  .modal p { font-size: 14px; color: var(--ink-dim); margin-bottom: 16px; }
+  .modal input {
+    width: 100%; background: var(--navy); border: 1px solid var(--line-strong);
+    border-radius: 8px; padding: 12px 14px; color: var(--ink);
+    font-family: var(--mono); font-size: 13px; margin-bottom: 16px;
+  }
+  .modal input:focus { outline: none; border-color: var(--gold); }
+  .modal-actions { display: flex; gap: 10px; justify-content: flex-end; }
+  .modal-actions button {
+    font-family: var(--mono); font-size: 12px; border-radius: 7px;
+    padding: 9px 16px; cursor: pointer; border: 1px solid var(--line-strong);
+  }
+  .btn-ghost { background: transparent; color: var(--ink-dim); }
+  .btn-solid { background: var(--gold); color: var(--navy); border-color: var(--gold); font-weight: 600; }
+
+  footer {
+    margin-top: 48px; text-align: center;
+    font-family: var(--mono); font-size: 11px; color: var(--ink-mute);
+  }
+  .err {
+    background: rgba(232,116,95,0.1); border: 1px solid rgba(232,116,95,0.4);
+    border-radius: 9px; padding: 13px 16px; margin-top: 20px;
+    font-size: 14px; color: var(--bad);
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div class="crest">&#9826;</div>
+    <h1>Empire Script Forge</h1>
+    <div class="sub">How Empires Fell &middot; Fact-Checked Script Generator</div>
+  </header>
+  <div class="rule"></div>
+
+  <div class="key-bar">
+    <span class="key-dot" id="keyDot"></span>
+    <span id="keyStatus">No API key set</span>
+    <button id="keyBtn">Set key</button>
+  </div>
+
+  <div class="card">
+    <div class="card-label">Enter a brand, company, or topic</div>
+    <div class="input-row">
+      <input type="text" id="topic" placeholder="e.g. Blockbuster, Toys R Us, Lehman Brothers..." autocomplete="off" />
+      <button class="primary" id="genBtn">Forge Script &rarr;</button>
+    </div>
+    <div class="examples" id="examples"></div>
+    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, a full cinematic VO script is generated, ready to paste into the Shorts Production Studio.</div>
+  </div>
+
+  <div id="status"></div>
+  <div id="result" class="result"></div>
+
+  <footer>Empire Script Forge &middot; powered by Claude &middot; output optimized for Shorts Production Studio</footer>
+</div>
+
+<!-- API KEY MODAL -->
+<div class="modal-bg" id="keyModal">
+  <div class="modal">
+    <h3>Set your Anthropic API key</h3>
+    <p>Stored only in this browser (localStorage). Never sent anywhere except Anthropic's API.</p>
+    <input type="password" id="keyInput" placeholder="sk-ant-..." autocomplete="off" />
+    <div class="modal-actions">
+      <button class="btn-ghost" id="keyClear">Clear</button>
+      <button class="btn-solid" id="keySave">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  const KEY_STORE = 'empire_forge_api_key';
+  const $ = id => document.getElementById(id);
+
+  const EXAMPLES = ['Blockbuster','Toys R Us','Lehman Brothers','Enron','Pan Am','Kodak','MoviePass','WeWork','Nokia','Theranos'];
+
+  // ---------- API KEY ----------
+  function getKey() { return localStorage.getItem(KEY_STORE) || ''; }
+  function refreshKeyUi() {
+    const k = getKey();
+    $('keyDot').classList.toggle('on', !!k);
+    $('keyStatus').textContent = k ? 'API key ready' : 'No API key set';
+  }
+  $('keyBtn').onclick = () => { $('keyInput').value = getKey(); $('keyModal').classList.add('open'); };
+  $('keySave').onclick = () => {
+    const v = $('keyInput').value.trim();
+    if (v) localStorage.setItem(KEY_STORE, v);
+    $('keyModal').classList.remove('open'); refreshKeyUi();
+  };
+  $('keyClear').onclick = () => { localStorage.removeItem(KEY_STORE); $('keyModal').classList.remove('open'); refreshKeyUi(); };
+  $('keyModal').onclick = e => { if (e.target === $('keyModal')) $('keyModal').classList.remove('open'); };
+
+  // ---------- EXAMPLE CHIPS ----------
+  EXAMPLES.forEach(name => {
+    const c = document.createElement('span');
+    c.className = 'chip'; c.textContent = name;
+    c.onclick = () => { $('topic').value = name; $('topic').focus(); };
+    $('examples').appendChild(c);
+  });
+
+  // ---------- HELPERS ----------
+  function escapeHTML(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+      .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+  }
+  function highlightScript(s) {
+    return escapeHTML(s)
+      .replace(/\[([^\]]+)\]/g, '<span class="tag">[$1]</span>')
+      .replace(/&lt;break\s+time=&quot;[^&]*&quot;\s*\/&gt;/g, m => '<span class="brk">' + m + '</span>');
+  }
+  function copyBtn(text, label) {
+    const id = 'cp_' + Math.random().toString(36).slice(2,9);
+    setTimeout(() => {
+      const b = document.getElementById(id);
+      if (!b) return;
+      b.onclick = () => {
+        navigator.clipboard.writeText(text).then(() => {
+          b.textContent = 'Copied'; b.classList.add('done');
+          setTimeout(() => { b.textContent = label; b.classList.remove('done'); }, 1600);
+        });
+      };
+    }, 0);
+    return '<button class="copy-btn" id="' + id + '">' + label + '</button>';
+  }
+
+  // ---------- ANTHROPIC CALL ----------
+  async function callClaude(systemPrompt, userPrompt) {
+    const key = getKey();
+    if (!key) throw new Error('NO_KEY');
+    const resp = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': key,
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true'
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 2000,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }]
+      })
+    });
+    if (!resp.ok) {
+      let msg = 'API error ' + resp.status;
+      try { const e = await resp.json(); if (e.error && e.error.message) msg = e.error.message; } catch(_) {}
+      throw new Error(msg);
+    }
+    const data = await resp.json();
+    const text = (data.content || []).filter(b => b.type === 'text').map(b => b.text).join('\n');
+    return text;
+  }
+  function parseJSON(text) {
+    const cleaned = text.replace(/^```json\s*/i,'').replace(/^```\s*/i,'').replace(/```\s*$/i,'').trim();
+    return JSON.parse(cleaned);
+  }
+
+  // ---------- STAGE 1: FACT CHECK ----------
+  const FACTCHECK_SYS = `You are a rigorous business-history fact-checker for a YouTube channel called "How Empires Fell" — a documentary channel about how once-dominant companies, brands, or business empires collapsed, failed, went bankrupt, lost their dominance, or were destroyed.
+
+Your job: decide whether a given subject genuinely qualifies as a "fallen empire" story.
+
+A subject QUALIFIES if it was once large, dominant, successful, or iconic AND then genuinely collapsed, went bankrupt, lost its dominance dramatically, was dismantled, or fell from the top. The original empire/company fall must be REAL and historically accurate. The brand may technically still exist today in some diminished or revived form (e.g. the name was bought and survives) — that is fine, as long as the ORIGINAL empire genuinely fell.
+
+A subject does NOT qualify if: it is currently thriving and dominant with no major fall, it never was a significant empire/company, it is fictional, or the "fall" is not factually real.
+
+You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
+
+  function factCheckPrompt(topic) {
+    return `Fact-check this subject for the "How Empires Fell" channel: "${topic}"
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "qualifies": true or false,
+  "company_name": "The proper, correct name of the company/brand/empire being referred to.",
+  "verdict_headline": "A short 4-8 word headline summarizing the ruling.",
+  "explanation": "2-3 sentences. If it qualifies, briefly state what the empire was and how/when it fell, confirming the fall is factually real. If it does NOT qualify, clearly explain why (still thriving / never an empire / fall not real / fictional).",
+  "still_exists_note": "If the brand technically still exists today in some form, one sentence clarifying that. Otherwise empty string.",
+  "suggestions": ["If it does NOT qualify, provide 3 alternative real fallen-empire subjects the user could pick instead. If it qualifies, return an empty array."]
+}
+
+Be strict and accurate. Only pass subjects whose collapse is genuinely historically real.`;
+  }
+
+  // ---------- STAGE 2: SCRIPT ----------
+  const SCRIPT_SYS = `You are the lead scriptwriter for "How Empires Fell", a cinematic documentary YouTube Shorts channel about how dominant companies and brands collapsed.
+
+CHANNEL STYLE:
+- Paradox-first hooks: open on a contradiction or shocking claim in the first sentence — never an encyclopedia-style "In [year], [company] was the leader of..." intro.
+- Declarative, ominous, true-crime-documentary tone. Serious, not playful.
+- Tell the story as: hook -> rise/dominance -> the fatal decision or hubris -> the collapse -> a dark recontextualizing final line.
+- Be factually accurate. Never overstate. If a brand technically still exists, acknowledge it rather than claiming total death.
+- Do not be constrained by duration — write the story at whatever length it needs to be told well, with no filler.
+
+OUTPUT FORMAT — the voice script must be optimized for an ElevenLabs-driven Shorts Production Studio:
+- Write the spoken script with emotion/delivery tags in square brackets at the start of lines or sentences where delivery should shift, e.g. [whispers], [serious], [curious], [thoughtful], [excited], [softly]. Use them naturally, not on every line.
+- Insert pacing breaks where a dramatic pause helps, written exactly as: <break time="0.5s" /> or <break time="1s" />.
+- The script should be pure narration — no scene directions, no shot descriptions, no music cues. Just the spoken words plus the bracket tags and break tags.
+
+You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
+
+  function scriptPrompt(company, factContext) {
+    return `Write a complete cinematic VO script for a "How Empires Fell" video about: ${company}
+
+Verified context: ${factContext}
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "title": "A punchy YouTube Shorts title. Format: brand name + dramatic hook. At most one emoji. Example: 'Blockbuster Netflix: The $50M Mistake'.",
+  "voice_script": "The full VO script with [emotion] tags and <break time=\\"0.5s\\" /> pacing tags. Paradox-first hook. No scene directions — pure narration only. Use real line breaks (\\n).",
+  "thumbnail_overlay_brand": "The recognizable brand/company name for the thumbnail's top tier. ALL CAPS, 1-3 words.",
+  "thumbnail_hook": "A punchy 3-6 word ALL CAPS declarative hook for the thumbnail's gold box. True-crime-documentary tone, not a trivia question. Example: 'THEY LAUGHED AT NETFLIX'.",
+  "summary": "One sentence describing the core story, for the user's reference."
+}
+
+Make the script genuinely compelling, accurate, and complete. Length should serve the story.`;
+  }
+
+  // ---------- MAIN FLOW ----------
+  let busy = false;
+  async function generate() {
+    if (busy) return;
+    const topic = $('topic').value.trim();
+    if (!topic) { $('topic').focus(); return; }
+    if (!getKey()) { $('keyModal').classList.add('open'); return; }
+
+    busy = true;
+    $('genBtn').disabled = true;
+    $('result').innerHTML = '';
+    $('status').innerHTML = '<div class="spinner"></div><div class="status">Fact-checking &mdash; verifying this empire truly fell...</div>';
+
+    try {
+      // STAGE 1
+      const fcRaw = await callClaude(FACTCHECK_SYS, factCheckPrompt(topic));
+      const fc = parseJSON(fcRaw);
+
+      if (!fc.qualifies) {
+        $('status').innerHTML = '';
+        let sugg = '';
+        if (Array.isArray(fc.suggestions) && fc.suggestions.length) {
+          sugg = '<div class="reselect">Try one of these instead: ' + fc.suggestions.map(escapeHTML).join(' &middot; ') + '</div>';
+        }
+        $('result').innerHTML =
+          '<div class="verdict fail">' +
+            '<div class="verdict-icon">&#9888;&#65039;</div>' +
+            '<div class="verdict-body">' +
+              '<h3>' + escapeHTML(fc.verdict_headline || 'Not a fallen empire') + '</h3>' +
+              '<p>' + escapeHTML(fc.explanation || '') + '</p>' +
+              '<p class="reselect">This subject does not fit "How Empires Fell." Please select another brand or company.</p>' +
+              sugg +
+            '</div>' +
+          '</div>';
+        busy = false; $('genBtn').disabled = false;
+        return;
+      }
+
+      // STAGE 1 passed -> STAGE 2
+      $('status').innerHTML = '<div class="spinner"></div><div class="status">Verified. Forging the script for <strong>' + escapeHTML(fc.company_name || topic) + '</strong>...</div>';
+
+      const factContext = (fc.explanation || '') + ' ' + (fc.still_exists_note || '');
+      const scRaw = await callClaude(SCRIPT_SYS, scriptPrompt(fc.company_name || topic, factContext));
+      const sc = parseJSON(scRaw);
+
+      $('status').innerHTML = '';
+      renderResult(fc, sc);
+
+    } catch (err) {
+      $('status').innerHTML = '';
+      if (err.message === 'NO_KEY') {
+        $('keyModal').classList.add('open');
+      } else {
+        $('result').innerHTML = '<div class="err">Something went wrong: ' + escapeHTML(err.message) +
+          '<br><span style="color:var(--ink-mute);font-size:12px">If this is a JSON or API error, try again. Check your API key if it persists.</span></div>';
+      }
+    }
+    busy = false;
+    $('genBtn').disabled = false;
+  }
+
+  function renderResult(fc, sc) {
+    const existsNote = fc.still_exists_note
+      ? '<p class="reselect" style="color:var(--ink-dim);margin-top:8px">Note: ' + escapeHTML(fc.still_exists_note) + '</p>'
+      : '';
+
+    const scriptText = sc.voice_script || '';
+
+    $('result').innerHTML =
+      // VERDICT
+      '<div class="verdict pass">' +
+        '<div class="verdict-icon">&#10003;</div>' +
+        '<div class="verdict-body">' +
+          '<h3>' + escapeHTML(fc.verdict_headline || 'Qualifies as a fallen empire') + '</h3>' +
+          '<p>' + escapeHTML(fc.explanation || '') + '</p>' +
+          existsNote +
+        '</div>' +
+      '</div>' +
+
+      // TITLE + SUMMARY
+      '<div class="section">' +
+        '<div class="section-head"><span class="label">Suggested Title</span>' + copyBtn(sc.title || '', 'Copy') + '</div>' +
+        '<div class="panel"><div style="font-family:var(--display);font-size:18px;color:var(--ink);font-weight:700">' + escapeHTML(sc.title || '') + '</div>' +
+        (sc.summary ? '<div class="note">' + escapeHTML(sc.summary) + '</div>' : '') + '</div>' +
+      '</div>' +
+
+      // VOICE SCRIPT
+      '<div class="section">' +
+        '<div class="section-head"><span class="label">Voice Script &mdash; for Shorts Production Studio</span>' + copyBtn(scriptText, 'Copy script') + '</div>' +
+        '<div class="script-box">' + highlightScript(scriptText) + '</div>' +
+        '<div class="note">Paste this straight into the Shorts Production Studio. Emotion tags [like this] and &lt;break&gt; tags are read by ElevenLabs &mdash; keep them in. Word count: ' +
+          escapeHTML(String(scriptText.split(/\s+/).filter(Boolean).length)) + ' words.</div>' +
+      '</div>' +
+
+      // THUMBNAIL OVERLAY
+      '<div class="section">' +
+        '<div class="section-head"><span class="label">Thumbnail Text Overlay</span>' +
+          copyBtn((sc.thumbnail_overlay_brand || '') + '\n' + (sc.thumbnail_hook || ''), 'Copy both') + '</div>' +
+        '<div class="panel"><div class="thumb-overlay">' +
+          '<div class="ov-row"><div><div class="ov-tag">Top &mdash; brand name</div>' +
+            '<div class="ov-brand">' + escapeHTML(sc.thumbnail_overlay_brand || '—') + '</div></div>' +
+            copyBtn(sc.thumbnail_overlay_brand || '', 'Copy') + '</div>' +
+          '<div class="ov-row"><div><div class="ov-tag">Bottom &mdash; gold hook box</div>' +
+            '<div class="ov-hook">' + escapeHTML(sc.thumbnail_hook || '—') + '</div></div>' +
+            copyBtn(sc.thumbnail_hook || '', 'Copy') + '</div>' +
+        '</div>' +
+        '<div class="note">White brand name (navy outline) on top &middot; black text in a gold #D4AF37 box below &middot; lower third, subject\'s face clear above.</div>' +
+        '</div>' +
+      '</div>';
+  }
+
+  $('genBtn').onclick = generate;
+  $('topic').addEventListener('keydown', e => { if (e.key === 'Enter') generate(); });
+
+  refreshKeyUi();
+</script>
+</body>
+</html>
