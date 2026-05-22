@@ -150,6 +150,51 @@
   }
   .chip:hover { border-color: var(--gold); color: var(--gold); }
 
+  /* DURATION SELECTOR */
+  .dur-wrap { margin-bottom: 22px; }
+  .dur-grid {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;
+  }
+  .dur-pill {
+    background: var(--navy);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding: 13px 8px;
+    color: var(--ink-dim);
+    font-family: var(--display);
+    font-weight: 700;
+    font-size: 15px;
+    letter-spacing: 0.04em;
+    cursor: pointer;
+    transition: 0.15s;
+    text-align: center;
+  }
+  .dur-pill:hover { border-color: var(--gold); color: var(--gold); }
+  .dur-pill.active {
+    border-color: var(--gold);
+    color: var(--gold-bright);
+    background: rgba(212,175,55,0.10);
+    box-shadow: 0 0 0 3px rgba(212,175,55,0.10);
+  }
+  .dur-custom {
+    margin-top: 10px;
+    display: none;
+  }
+  .dur-custom.show { display: block; }
+  .dur-custom input {
+    width: 100%;
+    background: var(--navy);
+    border: 1px solid var(--line-strong);
+    border-radius: 9px;
+    padding: 12px 15px;
+    color: var(--ink);
+    font-family: var(--body);
+    font-size: 15px;
+    transition: 0.15s;
+  }
+  .dur-custom input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.12); }
+  .dur-custom input::placeholder { color: var(--ink-mute); font-style: italic; }
+
   /* STATUS / LOADER */
   .status {
     margin-top: 26px; text-align: center;
@@ -331,8 +376,22 @@
       <input type="text" id="topic" placeholder="e.g. Blockbuster, Toys R Us, Lehman Brothers..." autocomplete="off" />
       <button class="primary" id="genBtn">Forge Script &rarr;</button>
     </div>
+
+    <div class="dur-wrap">
+      <div class="card-label" style="margin-top:22px;margin-bottom:10px">Preferred Duration</div>
+      <div class="dur-grid" id="durGrid">
+        <div class="dur-pill" data-dur="30s">30s</div>
+        <div class="dur-pill active" data-dur="60s">1m</div>
+        <div class="dur-pill" data-dur="120s">2m</div>
+        <div class="dur-pill" data-dur="custom">Custom</div>
+      </div>
+      <div class="dur-custom" id="durCustom">
+        <input type="text" id="durCustomInput" placeholder="Describe the length you want, e.g. about 45 seconds, or 3 minutes" autocomplete="off" />
+      </div>
+    </div>
+
     <div class="examples" id="examples"></div>
-    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, a full cinematic VO script is generated, ready to paste into the Shorts Production Studio.</div>
+    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, a full cinematic VO script is generated at your chosen duration, ready to paste into the Shorts Production Studio. Duration guides the script length; the story is never cut short for the sake of a timer.</div>
   </div>
 
   <div id="status"></div>
@@ -383,6 +442,37 @@
     c.onclick = () => { $('topic').value = name; $('topic').focus(); };
     $('examples').appendChild(c);
   });
+
+  // ---------- DURATION SELECTOR ----------
+  let selectedDuration = '60s'; // default = 1m
+  $('durGrid').querySelectorAll('.dur-pill').forEach(pill => {
+    pill.onclick = () => {
+      $('durGrid').querySelectorAll('.dur-pill').forEach(p => p.classList.remove('active'));
+      pill.classList.add('active');
+      selectedDuration = pill.dataset.dur;
+      $('durCustom').classList.toggle('show', selectedDuration === 'custom');
+      if (selectedDuration === 'custom') $('durCustomInput').focus();
+    };
+  });
+
+  // Returns a natural-language duration instruction for the script prompt
+  function durationInstruction() {
+    if (selectedDuration === '30s') {
+      return 'TARGET LENGTH: about 30 seconds of narration (roughly 70-85 spoken words). Keep it tight and punchy — every sentence must earn its place.';
+    }
+    if (selectedDuration === '60s') {
+      return 'TARGET LENGTH: about 1 minute of narration (roughly 140-170 spoken words). Enough room for a proper rise-and-fall arc without filler.';
+    }
+    if (selectedDuration === '120s') {
+      return 'TARGET LENGTH: about 2 minutes of narration (roughly 280-330 spoken words). Tell the fuller story with more detail on the rise, the fatal decision, and the fall.';
+    }
+    // custom
+    const custom = $('durCustomInput').value.trim();
+    if (custom) {
+      return 'TARGET LENGTH: ' + custom + '. Aim for roughly this length, but never cut the story short or pad it with filler — the narrative comes first.';
+    }
+    return 'TARGET LENGTH: about 1 minute of narration. Tell the story at the length it needs.';
+  }
 
   // ---------- HELPERS ----------
   function escapeHTML(s) {
@@ -478,7 +568,7 @@ CHANNEL STYLE:
 - Declarative, ominous, true-crime-documentary tone. Serious, not playful.
 - Tell the story as: hook -> rise/dominance -> the fatal decision or hubris -> the collapse -> a dark recontextualizing final line.
 - Be factually accurate. Never overstate. If a brand technically still exists, acknowledge it rather than claiming total death.
-- Do not be constrained by duration — write the story at whatever length it needs to be told well, with no filler.
+- A target length will be provided. Aim for it, but never sacrifice the story: do not pad with filler to reach a length, and do not cut a crucial beat just to stay short.
 
 OUTPUT FORMAT — the voice script must be optimized for an ElevenLabs-driven Shorts Production Studio:
 - Write the spoken script with emotion/delivery tags in square brackets at the start of lines or sentences where delivery should shift, e.g. [whispers], [serious], [curious], [thoughtful], [excited], [softly]. Use them naturally, not on every line.
@@ -487,10 +577,12 @@ OUTPUT FORMAT — the voice script must be optimized for an ElevenLabs-driven Sh
 
 You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
 
-  function scriptPrompt(company, factContext) {
+  function scriptPrompt(company, factContext, durationNote) {
     return `Write a complete cinematic VO script for a "How Empires Fell" video about: ${company}
 
 Verified context: ${factContext}
+
+${durationNote}
 
 Respond with ONLY valid JSON in this exact shape:
 {
@@ -501,7 +593,7 @@ Respond with ONLY valid JSON in this exact shape:
   "summary": "One sentence describing the core story, for the user's reference."
 }
 
-Make the script genuinely compelling, accurate, and complete. Length should serve the story.`;
+Make the script genuinely compelling, accurate, and complete. Aim for the target length above, but always prioritize telling the story well over hitting an exact word count.`;
   }
 
   // ---------- MAIN FLOW ----------
@@ -546,7 +638,7 @@ Make the script genuinely compelling, accurate, and complete. Length should serv
       $('status').innerHTML = '<div class="spinner"></div><div class="status">Verified. Forging the script for <strong>' + escapeHTML(fc.company_name || topic) + '</strong>...</div>';
 
       const factContext = (fc.explanation || '') + ' ' + (fc.still_exists_note || '');
-      const scRaw = await callClaude(SCRIPT_SYS, scriptPrompt(fc.company_name || topic, factContext));
+      const scRaw = await callClaude(SCRIPT_SYS, scriptPrompt(fc.company_name || topic, factContext, durationInstruction()));
       const sc = parseJSON(scRaw);
 
       $('status').innerHTML = '';
