@@ -352,6 +352,65 @@
     border-radius: 9px; padding: 13px 16px; margin-top: 20px;
     font-size: 14px; color: var(--bad);
   }
+
+  /* HISTORY (modal) */
+  .modal.modal-wide { max-width: 600px; }
+  .modal-wide .modal-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 16px;
+  }
+  .modal-wide .modal-head h3 { margin-bottom: 0; }
+  .history-empty {
+    font-family: var(--mono); font-size: 12px;
+    color: var(--ink-mute); text-align: center;
+    padding: 30px 20px; font-style: italic;
+  }
+  .history-list {
+    display: flex; flex-direction: column; gap: 8px;
+    max-height: 60vh; overflow-y: auto;
+  }
+  .history-list::-webkit-scrollbar { width: 8px; }
+  .history-list::-webkit-scrollbar-track { background: var(--navy-2); }
+  .history-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 5px; }
+  .hist-item {
+    display: flex; align-items: center; gap: 12px;
+    background: var(--navy-2);
+    border: 1px solid var(--line);
+    border-radius: 9px;
+    padding: 12px 14px;
+    cursor: pointer;
+    transition: 0.15s;
+  }
+  .hist-item:hover { border-color: var(--gold); background: var(--surface-2); }
+  .hist-verdict {
+    width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0;
+  }
+  .hist-verdict.pass { background: var(--good); }
+  .hist-verdict.fail { background: var(--bad); }
+  .hist-body { flex: 1; min-width: 0; }
+  .hist-title {
+    font-family: var(--display); font-weight: 700; font-size: 14px;
+    color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .hist-meta {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-mute);
+    margin-top: 2px;
+  }
+  .hist-del {
+    background: transparent; border: 1px solid var(--line);
+    color: var(--ink-mute); border-radius: 6px;
+    width: 28px; height: 28px; flex-shrink: 0;
+    cursor: pointer; font-size: 14px; line-height: 1;
+    transition: 0.15s;
+  }
+  .hist-del:hover { border-color: var(--bad); color: var(--bad); }
+  .hist-clear {
+    font-family: var(--mono); font-size: 11px;
+    background: transparent; color: var(--ink-mute);
+    border: 1px solid var(--line); border-radius: 6px;
+    padding: 5px 12px; cursor: pointer; transition: 0.15s;
+  }
+  .hist-clear:hover { border-color: var(--bad); color: var(--bad); }
 </style>
 </head>
 <body>
@@ -368,6 +427,7 @@
     <span class="key-dot" id="keyDot"></span>
     <span id="keyStatus">No API key set</span>
     <button id="keyBtn">Set key</button>
+    <button id="histBtn">&#9776; History</button>
   </div>
 
   <div class="card">
@@ -413,8 +473,25 @@
   </div>
 </div>
 
+<!-- HISTORY MODAL -->
+<div class="modal-bg" id="histModal">
+  <div class="modal modal-wide">
+    <div class="modal-head">
+      <h3>History</h3>
+      <button class="hist-clear" id="histClear">Clear all</button>
+    </div>
+    <p style="margin-bottom:14px">Click any entry to restore it &mdash; no API call needed.</p>
+    <div id="historyBody"></div>
+    <div class="modal-actions" style="margin-top:18px">
+      <button class="btn-ghost" id="histClose">Close</button>
+    </div>
+  </div>
+</div>
+
 <script>
   const KEY_STORE = 'empire_forge_api_key';
+  const HIST_STORE = 'empire_forge_history';
+  const HIST_MAX = 40;
   const $ = id => document.getElementById(id);
 
   const EXAMPLES = ['Blockbuster','Toys R Us','Lehman Brothers','Enron','Pan Am','Kodak','MoviePass','WeWork','Nokia','Theranos'];
@@ -533,6 +610,88 @@
     return JSON.parse(cleaned);
   }
 
+  // ---------- HISTORY ----------
+  function loadHistory() {
+    try { return JSON.parse(localStorage.getItem(HIST_STORE) || '[]'); }
+    catch(_) { return []; }
+  }
+  function saveHistory(list) {
+    try { localStorage.setItem(HIST_STORE, JSON.stringify(list.slice(0, HIST_MAX))); }
+    catch(_) {}
+  }
+  function addHistory(entry) {
+    const list = loadHistory();
+    list.unshift(entry);
+    saveHistory(list);
+    renderHistory();
+  }
+  function deleteHistory(id) {
+    saveHistory(loadHistory().filter(e => e.id !== id));
+    renderHistory();
+  }
+  function timeAgo(ts) {
+    const diff = Math.floor((Date.now() - ts) / 1000);
+    if (diff < 60) return 'just now';
+    if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+    if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+    return Math.floor(diff/86400) + 'd ago';
+  }
+  function renderHistory() {
+    const list = loadHistory();
+    $('histClear').style.display = list.length ? '' : 'none';
+
+    if (!list.length) {
+      $('historyBody').innerHTML = '<div class="history-empty">No scripts yet. Forged scripts are saved here automatically.</div>';
+      return;
+    }
+    const rows = list.map(e => {
+      const passed = e.type === 'pass';
+      const title = passed ? (e.title || e.topic) : (e.topic + ' — rejected');
+      const meta = (passed ? 'Script' : 'Not a fallen empire') + ' \u00b7 ' + (e.duration || '') + ' \u00b7 ' + timeAgo(e.ts);
+      return '<div class="hist-item" data-id="' + e.id + '">' +
+        '<span class="hist-verdict ' + (passed ? 'pass' : 'fail') + '"></span>' +
+        '<div class="hist-body">' +
+          '<div class="hist-title">' + escapeHTML(title) + '</div>' +
+          '<div class="hist-meta">' + escapeHTML(meta) + '</div>' +
+        '</div>' +
+        '<button class="hist-del" data-del="' + e.id + '" title="Delete">&times;</button>' +
+      '</div>';
+    }).join('');
+    $('historyBody').innerHTML = '<div class="history-list">' + rows + '</div>';
+
+    $('historyBody').querySelectorAll('.hist-item').forEach(item => {
+      item.onclick = ev => {
+        if (ev.target.classList.contains('hist-del')) return;
+        const entry = loadHistory().find(e => e.id === item.dataset.id);
+        if (entry) restoreHistory(entry);
+      };
+    });
+    $('historyBody').querySelectorAll('.hist-del').forEach(btn => {
+      btn.onclick = ev => { ev.stopPropagation(); deleteHistory(btn.dataset.del); };
+    });
+  }
+  function restoreHistory(entry) {
+    $('histModal').classList.remove('open');
+    $('status').innerHTML = '';
+    $('topic').value = entry.topic || '';
+    if (entry.type === 'pass') {
+      renderResult(entry.fc, entry.sc);
+    } else {
+      renderRejection(entry.fc);
+    }
+    window.scrollTo({ top: $('result').offsetTop - 30, behavior: 'smooth' });
+  }
+  // History modal open/close
+  $('histBtn').onclick = () => { renderHistory(); $('histModal').classList.add('open'); };
+  $('histClose').onclick = () => $('histModal').classList.remove('open');
+  $('histModal').onclick = e => { if (e.target === $('histModal')) $('histModal').classList.remove('open'); };
+  $('histClear').onclick = () => {
+    if (confirm('Clear all saved history? This cannot be undone.')) {
+      localStorage.removeItem(HIST_STORE);
+      renderHistory();
+    }
+  };
+
   // ---------- STAGE 1: FACT CHECK ----------
   const FACTCHECK_SYS = `You are a rigorous business-history fact-checker for a YouTube channel called "How Empires Fell" — a documentary channel about how once-dominant companies, brands, or business empires collapsed, failed, went bankrupt, lost their dominance, or were destroyed.
 
@@ -616,20 +775,15 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
 
       if (!fc.qualifies) {
         $('status').innerHTML = '';
-        let sugg = '';
-        if (Array.isArray(fc.suggestions) && fc.suggestions.length) {
-          sugg = '<div class="reselect">Try one of these instead: ' + fc.suggestions.map(escapeHTML).join(' &middot; ') + '</div>';
-        }
-        $('result').innerHTML =
-          '<div class="verdict fail">' +
-            '<div class="verdict-icon">&#9888;&#65039;</div>' +
-            '<div class="verdict-body">' +
-              '<h3>' + escapeHTML(fc.verdict_headline || 'Not a fallen empire') + '</h3>' +
-              '<p>' + escapeHTML(fc.explanation || '') + '</p>' +
-              '<p class="reselect">This subject does not fit "How Empires Fell." Please select another brand or company.</p>' +
-              sugg +
-            '</div>' +
-          '</div>';
+        renderRejection(fc);
+        addHistory({
+          id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+          ts: Date.now(),
+          type: 'fail',
+          topic: topic,
+          duration: durationLabel(),
+          fc: fc
+        });
         busy = false; $('genBtn').disabled = false;
         return;
       }
@@ -643,6 +797,16 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
 
       $('status').innerHTML = '';
       renderResult(fc, sc);
+      addHistory({
+        id: 'h' + Date.now().toString(36) + Math.random().toString(36).slice(2,6),
+        ts: Date.now(),
+        type: 'pass',
+        topic: topic,
+        title: sc.title || fc.company_name || topic,
+        duration: durationLabel(),
+        fc: fc,
+        sc: sc
+      });
 
     } catch (err) {
       $('status').innerHTML = '';
@@ -655,6 +819,32 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
     }
     busy = false;
     $('genBtn').disabled = false;
+  }
+
+  // Short human label for the chosen duration (used in history)
+  function durationLabel() {
+    if (selectedDuration === '30s') return '30s';
+    if (selectedDuration === '60s') return '1m';
+    if (selectedDuration === '120s') return '2m';
+    const c = $('durCustomInput').value.trim();
+    return c ? ('custom: ' + c) : 'custom';
+  }
+
+  function renderRejection(fc) {
+    let sugg = '';
+    if (Array.isArray(fc.suggestions) && fc.suggestions.length) {
+      sugg = '<div class="reselect">Try one of these instead: ' + fc.suggestions.map(escapeHTML).join(' &middot; ') + '</div>';
+    }
+    $('result').innerHTML =
+      '<div class="verdict fail">' +
+        '<div class="verdict-icon">&#9888;&#65039;</div>' +
+        '<div class="verdict-body">' +
+          '<h3>' + escapeHTML(fc.verdict_headline || 'Not a fallen empire') + '</h3>' +
+          '<p>' + escapeHTML(fc.explanation || '') + '</p>' +
+          '<p class="reselect">This subject does not fit "How Empires Fell." Please select another brand or company.</p>' +
+          sugg +
+        '</div>' +
+      '</div>';
   }
 
   function renderResult(fc, sc) {
@@ -711,6 +901,7 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
   $('topic').addEventListener('keydown', e => { if (e.key === 'Enter') generate(); });
 
   refreshKeyUi();
+  renderHistory();
 </script>
 </body>
 </html>
