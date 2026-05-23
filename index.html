@@ -935,6 +935,8 @@ THE FOUR RUNGS:
 
 ALSO CHECK:
 - factual_flag: true if the script makes a likely factual overstatement (e.g. claims a company that still exists today was "destroyed" / "vanished" / "gone forever", invents specific numbers, or overstates). Otherwise false.
+- timeline_flag: true if the script has a CHRONOLOGY or SEQUENCE problem. This is critical. Flag it if: a person is placed in the wrong era (e.g. a CEO credited with decisions made before they joined or after they left the company), events are presented out of their real order, two separate time periods are compressed or fused so they read as one, or a date is wrong. Be strict — a script can have flawless tone but a broken timeline. Verify that every named person was actually in their stated role at the time of the events attributed to them. Otherwise false.
+- timeline_note: If timeline_flag is true, one or two sentences naming the specific chronology error and the correct sequence/dates. Otherwise empty string.
 - closing_question: true if the final line begins with "So here's the question..." and poses a viewer question. Otherwise false.
 
 You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
@@ -953,10 +955,12 @@ Respond with ONLY valid JSON in this exact shape:
   "validation":  { "rating": "pass" | "weak" | "fail", "note": "One short sentence — call out specifically if the payoff just restates the hook." },
   "factual_flag": true or false,
   "factual_note": "If factual_flag is true, one sentence on the overstatement. Otherwise empty string.",
+  "timeline_flag": true or false,
+  "timeline_note": "If timeline_flag is true, one or two sentences naming the chronology error and the correct sequence/dates. Otherwise empty string.",
   "closing_question": true or false
 }
 
-Be strict. Most first drafts have at least one weak rung — usually Anticipation (missing head-fake) or Validation (payoff restates the hook).`;
+Be strict. Most first drafts have at least one weak rung — usually Anticipation (missing head-fake) or Validation (payoff restates the hook). Also scrutinize the timeline hard: a very common error is crediting a CEO or founder with events that happened before they joined or after they left, or fusing two different eras into one — check every named person against the real dates of their role.`;
   }
 
   // ---------- LADDER FIX ----------
@@ -970,6 +974,7 @@ Be strict. Most first drafts have at least one weak rung — usually Anticipatio
     });
     let extra = '';
     if (audit.factual_flag) extra += '\n- FACTUAL OVERSTATEMENT: ' + (audit.factual_note || 'Fix the likely-inaccurate claim.');
+    if (audit.timeline_flag) extra += '\n- TIMELINE ERROR (must fix): ' + (audit.timeline_note || 'The chronology is wrong — correct the sequence and place every named person in the era they were actually in their role.');
     if (audit.closing_question === false) extra += "\n- MISSING CLOSING QUESTION: the final line must begin with the words So here is the question.";
 
     return `Rewrite and improve this "How Empires Fell" voice script about ${company}.
@@ -1156,6 +1161,13 @@ Respond with ONLY valid JSON in this exact shape:
 
     // Extra checks
     let extraRows = '';
+    if (audit.timeline_flag) {
+      allPass = false;
+      extraRows += '<div class="rung">' +
+        '<span class="rung-icon fail">\u2715</span>' +
+        '<div class="rung-body"><div class="rung-name">Timeline &amp; Sequence</div>' +
+        '<div class="rung-note">' + escapeHTML(audit.timeline_note || 'Chronology error — review the order of events and dates.') + '</div></div></div>';
+    }
     if (audit.factual_flag) {
       allPass = false;
       extraRows += '<div class="rung">' +
@@ -1256,7 +1268,7 @@ Respond with ONLY valid JSON in this exact shape:
     if (!audit) return false;
     const rungsPass = ['stimulation','captivation','anticipation','validation']
       .every(k => audit[k] && audit[k].rating === 'pass');
-    return rungsPass && !audit.factual_flag && audit.closing_question !== false;
+    return rungsPass && !audit.factual_flag && !audit.timeline_flag && audit.closing_question !== false;
   }
 
   // Keep the most recent history entry in sync after a fix
