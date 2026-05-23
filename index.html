@@ -195,6 +195,44 @@
   .dur-custom input:focus { outline: none; border-color: var(--gold); box-shadow: 0 0 0 3px rgba(212,175,55,0.12); }
   .dur-custom input::placeholder { color: var(--ink-mute); font-style: italic; }
 
+  .runtime-pill {
+    display: inline-flex; align-items: center; gap: 7px;
+    font-family: var(--mono); font-size: 11px;
+    background: rgba(212,175,55,0.10);
+    border: 1px solid rgba(212,175,55,0.35);
+    color: var(--gold-bright);
+    border-radius: 20px; padding: 4px 12px;
+  }
+
+  /* DUAL SCRIPT VARIANTS */
+  .variant {
+    background: var(--navy-2);
+    border: 1px solid var(--line);
+    border-radius: 11px;
+    padding: 16px 18px;
+    margin-bottom: 14px;
+  }
+  .variant-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 12px; margin-bottom: 10px; flex-wrap: wrap;
+  }
+  .variant-name {
+    display: flex; align-items: center; gap: 9px;
+    font-family: var(--display); font-weight: 700;
+    font-size: 15px; letter-spacing: 0.03em;
+  }
+  .variant-tag {
+    font-family: var(--mono); font-size: 9px;
+    text-transform: uppercase; letter-spacing: 0.1em;
+    padding: 3px 9px; border-radius: 20px;
+  }
+  .variant-tag.cine { background: rgba(212,175,55,0.16); color: var(--gold-bright); }
+  .variant-tag.tight { background: rgba(95,207,142,0.14); color: var(--good); }
+  .variant-desc {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-mute); margin: 0 0 10px; line-height: 1.5;
+  }
+
   /* STATUS / LOADER */
   .status {
     margin-top: 26px; text-align: center;
@@ -451,7 +489,7 @@
     </div>
 
     <div class="examples" id="examples"></div>
-    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, a full cinematic VO script is generated at your chosen duration, ready to paste into the Shorts Production Studio. Duration guides the script length; the story is never cut short for the sake of a timer.</div>
+    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, it generates TWO script versions at your chosen duration: a <strong>Cinematic</strong> cut (whispers, dramatic pauses) and a <strong>Tight</strong> cut (brisk, minimal tags). Test both in ElevenLabs and keep the one that performs.</div>
   </div>
 
   <div id="status"></div>
@@ -532,23 +570,63 @@
     };
   });
 
-  // Returns a natural-language duration instruction for the script prompt
-  function durationInstruction() {
-    if (selectedDuration === '30s') {
-      return 'TARGET LENGTH: about 30 seconds of narration (roughly 70-85 spoken words). Keep it tight and punchy — every sentence must earn its place.';
+  // ---------- DURATION TARGET ----------
+  // Target seconds for each duration tier (true final ElevenLabs runtime)
+  function targetSeconds() {
+    if (selectedDuration === '30s') return 30;
+    if (selectedDuration === '60s') return 60;
+    if (selectedDuration === '120s') return 120;
+    // custom: try to extract a number of seconds/minutes
+    const c = $('durCustomInput').value.trim().toLowerCase();
+    const minMatch = c.match(/([\d.]+)\s*m/);
+    const secMatch = c.match(/([\d.]+)\s*s/);
+    if (minMatch) return Math.round(parseFloat(minMatch[1]) * 60);
+    if (secMatch) return Math.round(parseFloat(secMatch[1]));
+    const bare = c.match(/([\d.]+)/);
+    if (bare) { const n = parseFloat(bare[1]); return n <= 10 ? Math.round(n*60) : Math.round(n); }
+    return 60;
+  }
+
+  // Builds the duration instruction for a given delivery style.
+  // KEY: the target is the FINAL ElevenLabs runtime *including* tags and breaks.
+  // ElevenLabs normal pace ~2.7 w/s; cinematic (whispers+breaks) effective ~1.7 w/s; tight ~2.4 w/s.
+  function durationInstruction(delivery) {
+    const secs = targetSeconds();
+    const wps = delivery === 'cinematic' ? 1.7 : 2.4;
+    const targetWords = Math.round(secs * wps);
+    const lo = Math.round(targetWords * 0.9);
+    const hi = Math.round(targetWords * 1.1);
+    const maxBreaks = Math.max(1, Math.round(secs / 12));
+
+    if (delivery === 'cinematic') {
+      return `TARGET FINAL RUNTIME: about ${secs} seconds of FINISHED ElevenLabs audio — the real spoken duration AFTER emotion tags and breaks are applied, not raw word count.
+DELIVERY STYLE: Cinematic. Use emotion tags ([whispers], [softly], [serious], [thoughtful], [curious], [excited]) for mood, but understand slow tags like [whispers] and [softly] noticeably stretch runtime — use them deliberately on key dramatic beats, NOT every line.
+WORD BUDGET: approximately ${lo}-${hi} spoken words total (this already accounts for the slowdown from tags and pauses).
+BREAK BUDGET: AT MOST ${maxBreaks} <break> tag(s) in the whole script. Each adds real silence — spend them only on the most impactful pauses.
+Stay within the word and break budgets so the final audio lands near ${secs} seconds.`;
     }
-    if (selectedDuration === '60s') {
-      return 'TARGET LENGTH: about 1 minute of narration (roughly 140-170 spoken words). Enough room for a proper rise-and-fall arc without filler.';
-    }
-    if (selectedDuration === '120s') {
-      return 'TARGET LENGTH: about 2 minutes of narration (roughly 280-330 spoken words). Tell the fuller story with more detail on the rise, the fatal decision, and the fall.';
-    }
-    // custom
-    const custom = $('durCustomInput').value.trim();
-    if (custom) {
-      return 'TARGET LENGTH: ' + custom + '. Aim for roughly this length, but never cut the story short or pad it with filler — the narrative comes first.';
-    }
-    return 'TARGET LENGTH: about 1 minute of narration. Tell the story at the length it needs.';
+    return `TARGET FINAL RUNTIME: about ${secs} seconds of FINISHED ElevenLabs audio — the real spoken duration after delivery, not raw word count.
+DELIVERY STYLE: Tight. Keep narration brisk and punchy. Use emotion tags VERY sparingly — at most 2-3 light tags ([serious], [curious]) total, and AVOID slow tags like [whispers]/[softly] which stretch runtime.
+WORD BUDGET: approximately ${lo}-${hi} spoken words total.
+BREAK BUDGET: AT MOST ${maxBreaks} <break> tag(s), only if truly needed.
+Stay within the word and break budgets so the final audio lands near ${secs} seconds.`;
+  }
+
+  // Estimate final ElevenLabs runtime from a finished script
+  function estimateRuntime(script, delivery) {
+    if (!script) return 0;
+    const words = script
+      .replace(/\[[^\]]+\]/g, '')
+      .replace(/<break[^>]*>/g, '')
+      .split(/\s+/).filter(Boolean).length;
+    let breakSecs = 0;
+    (script.match(/<break\s+time="([\d.]+)s"/g) || []).forEach(b => {
+      const m = b.match(/([\d.]+)/);
+      if (m) breakSecs += parseFloat(m[1]);
+    });
+    const slowTags = (script.match(/\[(whispers?|softly)\]/gi) || []).length;
+    const wps = delivery === 'cinematic' ? 1.9 : 2.4;
+    return Math.round(words / wps + breakSecs + slowTags * 0.6);
   }
 
   // ---------- HELPERS ----------
@@ -788,12 +866,32 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
         return;
       }
 
-      // STAGE 1 passed -> STAGE 2
-      $('status').innerHTML = '<div class="spinner"></div><div class="status">Verified. Forging the script for <strong>' + escapeHTML(fc.company_name || topic) + '</strong>...</div>';
+      // STAGE 1 passed -> STAGE 2 (generate BOTH delivery versions in parallel)
+      $('status').innerHTML = '<div class="spinner"></div><div class="status">Verified. Forging Cinematic &amp; Tight scripts for <strong>' + escapeHTML(fc.company_name || topic) + '</strong>...</div>';
 
       const factContext = (fc.explanation || '') + ' ' + (fc.still_exists_note || '');
-      const scRaw = await callClaude(SCRIPT_SYS, scriptPrompt(fc.company_name || topic, factContext, durationInstruction()));
-      const sc = parseJSON(scRaw);
+      const company = fc.company_name || topic;
+
+      const [cineRaw, tightRaw] = await Promise.all([
+        callClaude(SCRIPT_SYS, scriptPrompt(company, factContext, durationInstruction('cinematic'))),
+        callClaude(SCRIPT_SYS, scriptPrompt(company, factContext, durationInstruction('tight')))
+      ]);
+      const cine = parseJSON(cineRaw);
+      const tight = parseJSON(tightRaw);
+      cine._estSecs = estimateRuntime(cine.voice_script || '', 'cinematic');
+      tight._estSecs = estimateRuntime(tight.voice_script || '', 'tight');
+
+      // Shared meta (title/thumbnail/summary) — take from cinematic version
+      const sc = {
+        title: cine.title,
+        summary: cine.summary,
+        thumbnail_overlay_brand: cine.thumbnail_overlay_brand,
+        thumbnail_hook: cine.thumbnail_hook,
+        variants: {
+          cinematic: { voice_script: cine.voice_script || '', _estSecs: cine._estSecs },
+          tight: { voice_script: tight.voice_script || '', _estSecs: tight._estSecs }
+        }
+      };
 
       $('status').innerHTML = '';
       renderResult(fc, sc);
@@ -802,7 +900,7 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
         ts: Date.now(),
         type: 'pass',
         topic: topic,
-        title: sc.title || fc.company_name || topic,
+        title: sc.title || company,
         duration: durationLabel(),
         fc: fc,
         sc: sc
@@ -847,12 +945,59 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
       '</div>';
   }
 
+  function fmtSecs(s) {
+    s = Math.round(s);
+    if (s < 60) return s + 's';
+    const m = Math.floor(s / 60), r = s % 60;
+    return m + 'm ' + (r < 10 ? '0' : '') + r + 's';
+  }
+
+  // Builds one script variant block
+  function variantBlock(key, scriptText, estSecs, delivery) {
+    const isCine = key === 'cinematic';
+    const name = isCine ? 'Cinematic' : 'Tight';
+    const tagClass = isCine ? 'cine' : 'tight';
+    const desc = isCine
+      ? 'Whispers and dramatic pauses for a richer, more cinematic mood.'
+      : 'Brisk, punchy delivery with minimal tags — runs closest to target time.';
+    const words = scriptText.split(/\s+/).filter(Boolean).length;
+    const breaks = (scriptText.match(/<break/g) || []).length;
+    return '<div class="variant">' +
+      '<div class="variant-head">' +
+        '<div class="variant-name"><span class="variant-tag ' + tagClass + '">' + name + '</span>' +
+          '<span class="runtime-pill">&#9201; ~' + fmtSecs(estSecs) + '</span></div>' +
+        copyBtn(scriptText, 'Copy ' + name) +
+      '</div>' +
+      '<div class="variant-desc">' + desc + ' &middot; ' + words + ' words &middot; ' + breaks + ' breaks</div>' +
+      '<div class="script-box">' + highlightScript(scriptText) + '</div>' +
+    '</div>';
+  }
+
   function renderResult(fc, sc) {
     const existsNote = fc.still_exists_note
       ? '<p class="reselect" style="color:var(--ink-dim);margin-top:8px">Note: ' + escapeHTML(fc.still_exists_note) + '</p>'
       : '';
 
-    const scriptText = sc.voice_script || '';
+    // Support both new dual-variant format and any legacy single-script entries
+    let variants = sc.variants;
+    if (!variants) {
+      variants = { single: { voice_script: sc.voice_script || '', _estSecs: sc._estSecs } };
+    }
+
+    let scriptsHTML = '';
+    if (variants.single) {
+      const v = variants.single;
+      const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, 'cinematic');
+      scriptsHTML = variantBlock('cinematic', v.voice_script, est, 'cinematic');
+    } else {
+      ['cinematic','tight'].forEach(k => {
+        const v = variants[k];
+        if (v) {
+          const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, k);
+          scriptsHTML += variantBlock(k, v.voice_script, est, k);
+        }
+      });
+    }
 
     $('result').innerHTML =
       // VERDICT
@@ -872,12 +1017,11 @@ Make the script genuinely compelling, accurate, and complete. Aim for the target
         (sc.summary ? '<div class="note">' + escapeHTML(sc.summary) + '</div>' : '') + '</div>' +
       '</div>' +
 
-      // VOICE SCRIPT
+      // VOICE SCRIPTS (two variants)
       '<div class="section">' +
-        '<div class="section-head"><span class="label">Voice Script &mdash; for Shorts Production Studio</span>' + copyBtn(scriptText, 'Copy script') + '</div>' +
-        '<div class="script-box">' + highlightScript(scriptText) + '</div>' +
-        '<div class="note">Paste this straight into the Shorts Production Studio. Emotion tags [like this] and &lt;break&gt; tags are read by ElevenLabs &mdash; keep them in. Word count: ' +
-          escapeHTML(String(scriptText.split(/\s+/).filter(Boolean).length)) + ' words.</div>' +
+        '<div class="section-head"><span class="label">Voice Scripts &mdash; test both in ElevenLabs</span></div>' +
+        scriptsHTML +
+        '<div class="note">Two delivery cuts at your target duration. Run both through ElevenLabs, compare the actual runtime and feel, and keep the winner. Estimates are approximate &mdash; always confirm in ElevenLabs.</div>' +
       '</div>' +
 
       // THUMBNAIL OVERLAY
