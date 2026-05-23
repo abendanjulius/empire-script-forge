@@ -233,6 +233,77 @@
     color: var(--ink-mute); margin: 0 0 10px; line-height: 1.5;
   }
 
+  /* DOPAMINE LADDER SCORECARD */
+  .ladder {
+    margin-top: 12px;
+    border-top: 1px dashed var(--line);
+    padding-top: 12px;
+  }
+  .ladder-head {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; margin-bottom: 9px; flex-wrap: wrap;
+  }
+  .ladder-title {
+    font-family: var(--mono); font-size: 10px;
+    text-transform: uppercase; letter-spacing: 0.12em;
+    color: var(--ink-dim);
+  }
+  .ladder-verdict {
+    font-family: var(--mono); font-size: 10px; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px;
+  }
+  .ladder-verdict.allgood { background: rgba(95,207,142,0.15); color: var(--good); }
+  .ladder-verdict.needswork { background: rgba(232,182,95,0.15); color: var(--warn); }
+  .ladder-verdict.auditing { background: var(--surface-2); color: var(--ink-dim); }
+  .rung {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 7px 0;
+    border-bottom: 1px solid rgba(42,58,94,0.5);
+  }
+  .rung:last-child { border-bottom: none; }
+  .rung-icon {
+    flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 11px; font-weight: 700; margin-top: 1px;
+  }
+  .rung-icon.pass { background: var(--good); color: var(--navy); }
+  .rung-icon.weak { background: var(--warn); color: var(--navy); }
+  .rung-icon.fail { background: var(--bad); color: #fff; }
+  .rung-body { flex: 1; min-width: 0; }
+  .rung-name {
+    font-family: var(--display); font-weight: 700; font-size: 13px;
+    color: var(--ink); letter-spacing: 0.02em;
+  }
+  .rung-note {
+    font-family: var(--mono); font-size: 10px; color: var(--ink-dim);
+    margin-top: 2px; line-height: 1.5;
+  }
+  .ladder-fix {
+    margin-top: 11px;
+    width: 100%;
+    background: linear-gradient(180deg, var(--gold-bright), var(--gold));
+    color: var(--navy);
+    font-family: var(--display); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.04em;
+    border: none; border-radius: 8px;
+    padding: 11px; cursor: pointer; transition: 0.15s;
+  }
+  .ladder-fix:hover:not(:disabled) { transform: translateY(-1px); }
+  .ladder-fix:disabled { opacity: 0.55; cursor: not-allowed; }
+  .ladder-fix.passed {
+    background: rgba(95,207,142,0.13);
+    color: var(--good);
+    border: 1px solid rgba(95,207,142,0.4);
+    cursor: default;
+  }
+  .ladder-fix.passed:hover { transform: none; }
+  .ladder-mini-spin {
+    display: inline-block; width: 12px; height: 12px;
+    border: 2px solid rgba(10,17,36,0.3); border-top-color: var(--navy);
+    border-radius: 50%; animation: spin 0.7s linear infinite;
+    vertical-align: -2px; margin-right: 6px;
+  }
+
   /* STATUS / LOADER */
   .status {
     margin-top: 26px; text-align: center;
@@ -753,8 +824,10 @@ Stay within the word and break budgets so the final audio lands near ${secs} sec
     $('status').innerHTML = '';
     $('topic').value = entry.topic || '';
     if (entry.type === 'pass') {
+      currentResult = { fc: entry.fc, sc: entry.sc };
       renderResult(entry.fc, entry.sc);
     } else {
+      currentResult = null;
       renderRejection(entry.fc);
     }
     window.scrollTo({ top: $('result').offsetTop - 30, behavior: 'smooth' });
@@ -851,8 +924,81 @@ Respond with ONLY valid JSON in this exact shape:
 Make the script genuinely compelling, accurate, and complete. Engineer it rung by rung through the Dopamine Ladder — Stimulation, Captivation, Anticipation, Validation — then the closing question. Aim for the target length above, but always prioritize telling the story well over hitting an exact word count.`;
   }
 
+  // ---------- DOPAMINE LADDER AUDIT ----------
+  const AUDIT_SYS = `You are a strict script auditor for "How Empires Fell", a cinematic documentary YouTube Shorts channel. You evaluate a voice script against the DOPAMINE LADDER framework and rate each stage honestly. You are tough but fair — do not hand out "pass" unless the stage genuinely does its job.
+
+THE FOUR RUNGS:
+1. STIMULATION — The first spoken line must be a visceral, scroll-stopping jolt (shocking number, stark image, blunt declaration). PASS if the opening line genuinely stops a scroll. WEAK if it works but is slow or generic. FAIL if it opens with setup/throat-clearing.
+2. CAPTIVATION — Within the first 1-2 sentences a clear central curiosity loop / paradox must be opened. PASS if the viewer has one burning question early. WEAK if the hook is vague. FAIL if no curiosity gap is created.
+3. ANTICIPATION — The body must escalate AND include a genuine head-fake or misdirection (a moment that flips viewer expectation — e.g. the company looked safe, or the obvious culprit was wrong, then a twist). PASS only if a real misdirection is present and the body keeps the viewer guessing. WEAK if the body is competent but linear with no twist. FAIL if it is a flat recap.
+4. VALIDATION — The collapse reveal must close the main loop with a gut-punch line that ESCALATES beyond the opening (new information or a sharper reframe — NOT a restatement of the hook). PASS if the payoff lands as something new and satisfying. WEAK if it merely restates or summarizes the opening. FAIL if there is no satisfying payoff.
+
+ALSO CHECK:
+- factual_flag: true if the script makes a likely factual overstatement (e.g. claims a company that still exists today was "destroyed" / "vanished" / "gone forever", invents specific numbers, or overstates). Otherwise false.
+- closing_question: true if the final line begins with "So here's the question..." and poses a viewer question. Otherwise false.
+
+You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
+
+  function auditPrompt(company, scriptText) {
+    return `Audit this "How Empires Fell" voice script about ${company}.
+
+SCRIPT:
+${scriptText}
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "stimulation": { "rating": "pass" | "weak" | "fail", "note": "One short sentence — what works or what to fix." },
+  "captivation": { "rating": "pass" | "weak" | "fail", "note": "One short sentence." },
+  "anticipation": { "rating": "pass" | "weak" | "fail", "note": "One short sentence — call out specifically if the head-fake/misdirection is missing." },
+  "validation":  { "rating": "pass" | "weak" | "fail", "note": "One short sentence — call out specifically if the payoff just restates the hook." },
+  "factual_flag": true or false,
+  "factual_note": "If factual_flag is true, one sentence on the overstatement. Otherwise empty string.",
+  "closing_question": true or false
+}
+
+Be strict. Most first drafts have at least one weak rung — usually Anticipation (missing head-fake) or Validation (payoff restates the hook).`;
+  }
+
+  // ---------- LADDER FIX ----------
+  function fixPrompt(company, factContext, durationNote, scriptText, audit) {
+    const weak = [];
+    ['stimulation','captivation','anticipation','validation'].forEach(k => {
+      const r = audit[k];
+      if (r && r.rating !== 'pass') {
+        weak.push('- ' + k.toUpperCase() + ' (' + r.rating + '): ' + (r.note || ''));
+      }
+    });
+    let extra = '';
+    if (audit.factual_flag) extra += '\n- FACTUAL OVERSTATEMENT: ' + (audit.factual_note || 'Fix the likely-inaccurate claim.');
+    if (audit.closing_question === false) extra += "\n- MISSING CLOSING QUESTION: the final line must begin with the words So here is the question.";
+
+    return `Rewrite and improve this "How Empires Fell" voice script about ${company}.
+
+Verified context: ${factContext}
+
+${durationNote}
+
+CURRENT SCRIPT:
+${scriptText}
+
+The script was audited against the Dopamine Ladder. These rungs need fixing:
+${weak.join('\n')}${extra}
+
+INSTRUCTIONS:
+- Rewrite the FULL script so it flows as one coherent piece.
+- Fix every weak rung listed above. In particular: if ANTICIPATION is weak, add a genuine head-fake/misdirection (a moment that flips viewer expectation, then twists). If VALIDATION is weak, make the payoff line ESCALATE beyond the opening — new information or a sharper reframe, never a restatement of the hook.
+- PRESERVE the strengths of any rung that already passed — do not weaken what already works.
+- Keep the same factual accuracy, the same delivery tags style, and the mandatory "So here's the question..." closing line.
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "voice_script": "The full improved VO script with [emotion] tags and <break> tags. Pure narration. Ends with the 'So here's the question...' line."
+}`;
+  }
+
   // ---------- MAIN FLOW ----------
   let busy = false;
+  let currentResult = null; // { fc, sc } — for the ladder fix loop
   async function generate() {
     if (busy) return;
     const topic = $('topic').value.trim();
@@ -899,18 +1045,31 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
       cine._estSecs = estimateRuntime(cine.voice_script || '', 'cinematic');
       tight._estSecs = estimateRuntime(tight.voice_script || '', 'tight');
 
+      // STAGE 3 — audit both scripts against the Dopamine Ladder, in parallel
+      $('status').innerHTML = '<div class="spinner"></div><div class="status">Auditing scripts against the Dopamine Ladder...</div>';
+      const [cineAuditRaw, tightAuditRaw] = await Promise.all([
+        callClaude(AUDIT_SYS, auditPrompt(company, cine.voice_script || '')),
+        callClaude(AUDIT_SYS, auditPrompt(company, tight.voice_script || ''))
+      ]);
+      let cineAudit = null, tightAudit = null;
+      try { cineAudit = parseJSON(cineAuditRaw); } catch(_) {}
+      try { tightAudit = parseJSON(tightAuditRaw); } catch(_) {}
+
       // Shared meta (title/thumbnail/summary) — take from cinematic version
       const sc = {
         title: cine.title,
         summary: cine.summary,
         thumbnail_overlay_brand: cine.thumbnail_overlay_brand,
         thumbnail_hook: cine.thumbnail_hook,
+        _company: company,
+        _factContext: factContext,
         variants: {
-          cinematic: { voice_script: cine.voice_script || '', _estSecs: cine._estSecs },
-          tight: { voice_script: tight.voice_script || '', _estSecs: tight._estSecs }
+          cinematic: { voice_script: cine.voice_script || '', _estSecs: cine._estSecs, audit: cineAudit },
+          tight: { voice_script: tight.voice_script || '', _estSecs: tight._estSecs, audit: tightAudit }
         }
       };
 
+      currentResult = { fc: fc, sc: sc };
       $('status').innerHTML = '';
       renderResult(fc, sc);
       addHistory({
@@ -971,7 +1130,62 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
   }
 
   // Builds one script variant block
-  function variantBlock(key, scriptText, estSecs, delivery) {
+  // Renders the Dopamine Ladder scorecard for one variant
+  function ladderCardHTML(key, audit) {
+    if (!audit) return '';
+    const rungs = [
+      ['stimulation', 'Stimulation', 'Scroll-stopping first line'],
+      ['captivation', 'Captivation', 'Curiosity loop opened'],
+      ['anticipation', 'Anticipation', 'Head-fake keeps them guessing'],
+      ['validation', 'Validation', 'Payoff escalates beyond the hook']
+    ];
+    let allPass = true;
+    const rows = rungs.map(([k, label, fallback]) => {
+      const r = audit[k] || {};
+      const rating = r.rating || 'weak';
+      if (rating !== 'pass') allPass = false;
+      const sym = rating === 'pass' ? '\u2713' : (rating === 'weak' ? '!' : '\u2715');
+      return '<div class="rung">' +
+        '<span class="rung-icon ' + rating + '">' + sym + '</span>' +
+        '<div class="rung-body">' +
+          '<div class="rung-name">' + label + '</div>' +
+          '<div class="rung-note">' + escapeHTML(r.note || fallback) + '</div>' +
+        '</div>' +
+      '</div>';
+    }).join('');
+
+    // Extra checks
+    let extraRows = '';
+    if (audit.factual_flag) {
+      allPass = false;
+      extraRows += '<div class="rung">' +
+        '<span class="rung-icon fail">\u2715</span>' +
+        '<div class="rung-body"><div class="rung-name">Factual Accuracy</div>' +
+        '<div class="rung-note">' + escapeHTML(audit.factual_note || 'Possible overstatement — review.') + '</div></div></div>';
+    }
+    if (audit.closing_question === false) {
+      allPass = false;
+      extraRows += '<div class="rung">' +
+        '<span class="rung-icon weak">!</span>' +
+        '<div class="rung-body"><div class="rung-name">Closing Question</div>' +
+        '<div class="rung-note">Missing the closing question ending.</div></div></div>';
+    }
+
+    const verdict = allPass
+      ? '<span class="ladder-verdict allgood">&#10003; Passes the Ladder</span>'
+      : '<span class="ladder-verdict needswork">Needs work</span>';
+
+    const fixBtn = allPass
+      ? '<button class="ladder-fix passed" disabled>&#10003; All four rungs green</button>'
+      : '<button class="ladder-fix" data-fix="' + key + '">Fix weak rungs &amp; re-audit</button>';
+
+    return '<div class="ladder" data-ladder="' + key + '">' +
+      '<div class="ladder-head"><span class="ladder-title">Dopamine Ladder Check</span>' + verdict + '</div>' +
+      rows + extraRows + fixBtn +
+    '</div>';
+  }
+
+  function variantBlock(key, scriptText, estSecs, delivery, audit) {
     const isCine = key === 'cinematic';
     const name = isCine ? 'Cinematic' : 'Tight';
     const tagClass = isCine ? 'cine' : 'tight';
@@ -980,7 +1194,7 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
       : 'Brisk, punchy delivery with minimal tags — runs closest to target time.';
     const words = scriptText.split(/\s+/).filter(Boolean).length;
     const breaks = (scriptText.match(/<break/g) || []).length;
-    return '<div class="variant">' +
+    return '<div class="variant" data-variant="' + key + '">' +
       '<div class="variant-head">' +
         '<div class="variant-name"><span class="variant-tag ' + tagClass + '">' + name + '</span>' +
           '<span class="runtime-pill">&#9201; ~' + fmtSecs(estSecs) + '</span></div>' +
@@ -988,8 +1202,73 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
       '</div>' +
       '<div class="variant-desc">' + desc + ' &middot; ' + words + ' words &middot; ' + breaks + ' breaks</div>' +
       '<div class="script-box">' + highlightScript(scriptText) + '</div>' +
+      ladderCardHTML(key, audit) +
     '</div>';
   }
+
+  // ---------- LADDER FIX LOOP ----------
+  const MAX_FIX_ATTEMPTS = 4;
+  async function runLadderFix(key) {
+    if (busy || !currentResult) return;
+    const sc = currentResult.sc;
+    const variant = sc.variants[key];
+    if (!variant || !variant.audit) return;
+
+    busy = true;
+    const card = document.querySelector('.ladder[data-ladder="' + key + '"]');
+    const btn = card ? card.querySelector('.ladder-fix') : null;
+
+    try {
+      let attempt = 0;
+      while (attempt < MAX_FIX_ATTEMPTS) {
+        attempt++;
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="ladder-mini-spin"></span>Fixing &amp; re-auditing (attempt ' + attempt + ')...';
+        }
+        // Rewrite the script targeting weak rungs
+        const durNote = durationInstruction(key);
+        const fixRaw = await callClaude(SCRIPT_SYS,
+          fixPrompt(sc._company, sc._factContext, durNote, variant.voice_script, variant.audit));
+        const fixed = parseJSON(fixRaw);
+        if (fixed.voice_script) {
+          variant.voice_script = fixed.voice_script;
+          variant._estSecs = estimateRuntime(fixed.voice_script, key);
+        }
+        // Re-audit
+        const auditRaw = await callClaude(AUDIT_SYS, auditPrompt(sc._company, variant.voice_script));
+        try { variant.audit = parseJSON(auditRaw); } catch(_) {}
+
+        // Re-render so the user sees progress
+        renderResult(currentResult.fc, sc);
+        updateHistoryEntry();
+
+        if (ladderAllPass(variant.audit)) break;
+      }
+    } catch (err) {
+      const c2 = document.querySelector('.ladder[data-ladder="' + key + '"] .ladder-fix');
+      if (c2) { c2.disabled = false; c2.textContent = 'Fix failed — try again'; }
+    }
+    busy = false;
+  }
+
+  function ladderAllPass(audit) {
+    if (!audit) return false;
+    const rungsPass = ['stimulation','captivation','anticipation','validation']
+      .every(k => audit[k] && audit[k].rating === 'pass');
+    return rungsPass && !audit.factual_flag && audit.closing_question !== false;
+  }
+
+  // Keep the most recent history entry in sync after a fix
+  function updateHistoryEntry() {
+    if (!currentResult) return;
+    const list = loadHistory();
+    if (list.length && list[0].type === 'pass') {
+      list[0].sc = currentResult.sc;
+      saveHistory(list);
+    }
+  }
+
 
   function renderResult(fc, sc) {
     const existsNote = fc.still_exists_note
@@ -1006,13 +1285,13 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
     if (variants.single) {
       const v = variants.single;
       const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, 'cinematic');
-      scriptsHTML = variantBlock('cinematic', v.voice_script, est, 'cinematic');
+      scriptsHTML = variantBlock('cinematic', v.voice_script, est, 'cinematic', v.audit);
     } else {
       ['cinematic','tight'].forEach(k => {
         const v = variants[k];
         if (v) {
           const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, k);
-          scriptsHTML += variantBlock(k, v.voice_script, est, k);
+          scriptsHTML += variantBlock(k, v.voice_script, est, k, v.audit);
         }
       });
     }
@@ -1057,6 +1336,11 @@ Make the script genuinely compelling, accurate, and complete. Engineer it rung b
         '<div class="note">White brand name (navy outline) on top &middot; black text in a gold #D4AF37 box below &middot; lower third, subject\'s face clear above.</div>' +
         '</div>' +
       '</div>';
+
+    // Wire up the "Fix weak rungs" buttons
+    $('result').querySelectorAll('.ladder-fix[data-fix]').forEach(btn => {
+      btn.onclick = () => runLadderFix(btn.dataset.fix);
+    });
   }
 
   $('genBtn').onclick = generate;
