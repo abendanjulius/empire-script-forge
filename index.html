@@ -304,6 +304,47 @@
     vertical-align: -2px; margin-right: 6px;
   }
 
+  /* FACT-CHECK BANNER */
+  .factcheck {
+    margin-top: 12px;
+    border-radius: 9px;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+  }
+  .factcheck.verified { background: rgba(95,207,142,0.09); border-color: rgba(95,207,142,0.38); }
+  .factcheck.minor { background: rgba(232,182,95,0.09); border-color: rgba(232,182,95,0.4); }
+  .factcheck.major { background: rgba(232,116,95,0.10); border-color: rgba(232,116,95,0.5); }
+  .factcheck-head {
+    display: flex; align-items: center; gap: 8px;
+    font-family: var(--mono); font-size: 11px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+  }
+  .factcheck.verified .factcheck-head { color: var(--good); }
+  .factcheck.minor .factcheck-head { color: var(--warn); }
+  .factcheck.major .factcheck-head { color: var(--bad); }
+  .factcheck-note {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-dim); margin-top: 6px; line-height: 1.55;
+  }
+  .factcheck-issues {
+    margin: 7px 0 0; padding-left: 16px;
+  }
+  .factcheck-issues li {
+    font-family: var(--mono); font-size: 10px;
+    color: var(--ink-dim); line-height: 1.55; margin-bottom: 3px;
+  }
+  .factcheck-fix {
+    margin-top: 10px; width: 100%;
+    background: linear-gradient(180deg, #f0a06a, var(--bad));
+    color: #2a0f08;
+    font-family: var(--display); font-weight: 700;
+    font-size: 13px; letter-spacing: 0.03em;
+    border: none; border-radius: 8px;
+    padding: 10px; cursor: pointer; transition: 0.15s;
+  }
+  .factcheck-fix:hover:not(:disabled) { transform: translateY(-1px); }
+  .factcheck-fix:disabled { opacity: 0.55; cursor: not-allowed; }
+
   /* STATUS / LOADER */
   .status {
     margin-top: 26px; text-align: center;
@@ -560,7 +601,7 @@
     </div>
 
     <div class="examples" id="examples"></div>
-    <div class="hint">Step 1 &mdash; the app fact-checks whether the company truly collapsed. Step 2 &mdash; if it qualifies, it generates TWO script versions at your chosen duration: a <strong>Cinematic</strong> cut (whispers, dramatic pauses) and a <strong>Tight</strong> cut (brisk, minimal tags). Test both in ElevenLabs and keep the one that performs.</div>
+    <div class="hint">Each script runs through four checks: it confirms the company truly collapsed, generates <strong>Cinematic</strong> and <strong>Tight</strong> versions, <strong>fact-verifies</strong> them against business history, and audits them against the Dopamine Ladder. Fix buttons correct any issues. Note: the fact-check is a strong safety net, not a guarantee &mdash; spot-check the core facts of important videos yourself.</div>
   </div>
 
   <div id="status"></div>
@@ -924,6 +965,45 @@ Respond with ONLY valid JSON in this exact shape:
 Make the script genuinely compelling, accurate, and complete. Engineer it rung by rung through the Dopamine Ladder — Stimulation, Captivation, Anticipation, Validation — then the closing question. Aim for the target length above, but always prioritize telling the story well over hitting an exact word count.`;
   }
 
+  // ---------- FACT VERIFICATION ----------
+  const FACTVERIFY_SYS = `You are a meticulous fact-checker for "How Empires Fell", a documentary YouTube channel about real business history. Your ONLY job is accuracy. You do not care whether a script is engaging — you care whether it is TRUE.
+
+You are given a finished voice script about a real company's decline. Verify its core narrative and every checkable claim against well-established business history.
+
+WHAT TO CATCH — be aggressive about all of these:
+1. FALSE PREMISE — the central story is wrong or reversed. Example: a script claiming a company failed because it OVER-invested in digital, when the documented history is that it UNDER-invested. A false premise is the most serious error because the whole script teaches viewers something untrue.
+2. FABRICATED OR WRONG NUMBERS — revenue, valuations, dollar amounts, percentages, employee counts, dates that are invented, guessed, or materially wrong.
+3. WRONG ATTRIBUTION — a decision, quote, or action credited to the wrong person, or to a person who was not in that role at that time.
+4. TIMELINE ERRORS — events out of order, eras fused together, a person placed before they joined or after they left.
+5. OVERSTATEMENT — claiming a company "vanished" / "was destroyed" / "is gone" when it still exists in some form; or any dramatic claim stronger than the facts support.
+6. INVENTED EVENTS — specific events, deals, or decisions that did not happen or cannot be verified.
+
+Judge against what is genuinely well-established. If a claim is plausible and consistent with known history, do not flag it. If a claim is central to the script and is wrong, that is a MAJOR inaccuracy. Be honest about uncertainty — if you are not sure a specific number is right, say so rather than guessing.
+
+You ALWAYS respond with valid JSON only — no markdown fences, no preamble.`;
+
+  function factVerifyPrompt(company, scriptText) {
+    return `Fact-check this "How Empires Fell" voice script about ${company}. Verify the core narrative and every checkable claim against established business history.
+
+SCRIPT:
+${scriptText}
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "accuracy": "verified" | "minor_issues" | "major_inaccuracy",
+  "premise_correct": true or false,
+  "premise_note": "One or two sentences. If the central narrative is wrong, state what the script claims and what actually happened. If correct, briefly confirm it.",
+  "issues": ["A list of specific factual problems found — wrong numbers, false claims, misattributions, invented events. Each item names the problem AND the correction. Empty array if none."],
+  "corrections_summary": "If accuracy is not 'verified', a clear paragraph instructing how to rewrite the script accurately — the true narrative, the correct numbers, the right sequence. Empty string if verified."
+}
+
+Rules:
+- If the central premise is wrong, accuracy MUST be "major_inaccuracy" and premise_correct MUST be false.
+- If only small numbers or minor details are off but the core story is right, accuracy is "minor_issues".
+- Only use "verified" if the core narrative AND the checkable claims are sound.
+- Be strict. A script that is engaging but false is a failure.`;
+  }
+
   // ---------- DOPAMINE LADDER AUDIT ----------
   const AUDIT_SYS = `You are a strict script auditor for "How Empires Fell", a cinematic documentary YouTube Shorts channel. You evaluate a voice script against the DOPAMINE LADDER framework and rate each stage honestly. You are tough but fair — do not hand out "pass" unless the stage genuinely does its job.
 
@@ -1001,6 +1081,41 @@ Respond with ONLY valid JSON in this exact shape:
 }`;
   }
 
+  // ---------- FACT-CORRECTION REWRITE ----------
+  function factFixPrompt(company, factContext, durationNote, scriptText, factCheck) {
+    const issues = Array.isArray(factCheck.issues) && factCheck.issues.length
+      ? factCheck.issues.map(i => '- ' + i).join('\n')
+      : '- (see premise note and corrections summary below)';
+    return `The following "How Empires Fell" voice script about ${company} has FACTUAL ERRORS and must be rewritten to be accurate. Accuracy is non-negotiable — a false but engaging script is unacceptable.
+
+Verified context: ${factContext}
+
+${durationNote}
+
+CURRENT SCRIPT (contains factual errors):
+${scriptText}
+
+FACT-CHECK FINDINGS:
+Premise problem: ${factCheck.premise_note || '(the central narrative is inaccurate)'}
+
+Specific issues:
+${issues}
+
+How to correct it: ${factCheck.corrections_summary || 'Rewrite the script so the central narrative and every claim match established history.'}
+
+INSTRUCTIONS:
+- Rewrite the FULL script so the central narrative is TRUE and every claim, number, date, and attribution is accurate to established business history.
+- If the original premise was reversed or false, tell the REAL story instead — do not try to preserve a dramatic angle that isn't true. The accurate story is the only acceptable story.
+- Do not invent numbers. Only use figures you are confident are accurate; if unsure, speak in accurate general terms ("billions in revenue", "the company's peak") rather than a precise fabricated number.
+- Keep it genuinely compelling — the real history of these collapses is dramatic enough. Keep the paradox-first hook, the Dopamine Ladder structure (Stimulation, Captivation, Anticipation with a real head-fake, Validation), the [emotion] tags, the <break> tags, and the mandatory "So here's the question..." closing line.
+- Stay within the target duration above.
+
+Respond with ONLY valid JSON in this exact shape:
+{
+  "voice_script": "The full rewritten, factually accurate VO script with [emotion] tags and <break> tags. Pure narration. Ends with the 'So here's the question...' line."
+}`;
+  }
+
   // ---------- MAIN FLOW ----------
   let busy = false;
   let currentResult = null; // { fc, sc } — for the ladder fix loop
@@ -1050,7 +1165,36 @@ Respond with ONLY valid JSON in this exact shape:
       cine._estSecs = estimateRuntime(cine.voice_script || '', 'cinematic');
       tight._estSecs = estimateRuntime(tight.voice_script || '', 'tight');
 
-      // STAGE 3 — audit both scripts against the Dopamine Ladder, in parallel
+      // STAGE 3 — FACT VERIFICATION (accuracy gate, runs before the ladder audit)
+      $('status').innerHTML = '<div class="spinner"></div><div class="status">Fact-checking the scripts against business history...</div>';
+      async function verifyAndCorrect(scriptObj, delivery) {
+        let factCheck = null;
+        try {
+          factCheck = parseJSON(await callClaude(FACTVERIFY_SYS, factVerifyPrompt(company, scriptObj.voice_script || '')));
+        } catch(_) {}
+        // Auto-correct a major inaccuracy once, up front
+        if (factCheck && factCheck.accuracy === 'major_inaccuracy') {
+          try {
+            const corrected = parseJSON(await callClaude(SCRIPT_SYS,
+              factFixPrompt(company, factContext, durationInstruction(delivery), scriptObj.voice_script || '', factCheck)));
+            if (corrected.voice_script) {
+              scriptObj.voice_script = corrected.voice_script;
+              scriptObj._estSecs = estimateRuntime(corrected.voice_script, delivery);
+              // re-verify the corrected script
+              try {
+                factCheck = parseJSON(await callClaude(FACTVERIFY_SYS, factVerifyPrompt(company, scriptObj.voice_script)));
+              } catch(_) {}
+            }
+          } catch(_) {}
+        }
+        scriptObj.factCheck = factCheck;
+      }
+      await Promise.all([
+        verifyAndCorrect(cine, 'cinematic'),
+        verifyAndCorrect(tight, 'tight')
+      ]);
+
+      // STAGE 4 — audit both scripts against the Dopamine Ladder, in parallel
       $('status').innerHTML = '<div class="spinner"></div><div class="status">Auditing scripts against the Dopamine Ladder...</div>';
       const [cineAuditRaw, tightAuditRaw] = await Promise.all([
         callClaude(AUDIT_SYS, auditPrompt(company, cine.voice_script || '')),
@@ -1069,8 +1213,8 @@ Respond with ONLY valid JSON in this exact shape:
         _company: company,
         _factContext: factContext,
         variants: {
-          cinematic: { voice_script: cine.voice_script || '', _estSecs: cine._estSecs, audit: cineAudit },
-          tight: { voice_script: tight.voice_script || '', _estSecs: tight._estSecs, audit: tightAudit }
+          cinematic: { voice_script: cine.voice_script || '', _estSecs: cine._estSecs, audit: cineAudit, factCheck: cine.factCheck },
+          tight: { voice_script: tight.voice_script || '', _estSecs: tight._estSecs, audit: tightAudit, factCheck: tight.factCheck }
         }
       };
 
@@ -1197,7 +1341,31 @@ Respond with ONLY valid JSON in this exact shape:
     '</div>';
   }
 
-  function variantBlock(key, scriptText, estSecs, delivery, audit) {
+  // Renders the fact-check banner for one variant
+  function factCardHTML(key, factCheck) {
+    if (!factCheck) return '';
+    const acc = factCheck.accuracy || 'minor_issues';
+    let cls, icon, label;
+    if (acc === 'verified') { cls = 'verified'; icon = '\u2713'; label = 'Fact-check passed'; }
+    else if (acc === 'major_inaccuracy') { cls = 'major'; icon = '\u2715'; label = 'Major inaccuracy'; }
+    else { cls = 'minor'; icon = '!'; label = 'Minor issues'; }
+
+    let body = '<div class="factcheck-note">' + escapeHTML(factCheck.premise_note || '') + '</div>';
+    if (Array.isArray(factCheck.issues) && factCheck.issues.length) {
+      body += '<ul class="factcheck-issues">' +
+        factCheck.issues.map(i => '<li>' + escapeHTML(i) + '</li>').join('') + '</ul>';
+    }
+    let fixBtn = '';
+    if (acc !== 'verified') {
+      fixBtn = '<button class="factcheck-fix" data-factfix="' + key + '">Correct the facts &amp; re-verify</button>';
+    }
+    return '<div class="factcheck ' + cls + '" data-factcard="' + key + '">' +
+      '<div class="factcheck-head"><span>' + icon + '</span> ' + label + '</div>' +
+      body + fixBtn +
+    '</div>';
+  }
+
+  function variantBlock(key, scriptText, estSecs, delivery, audit, factCheck) {
     const isCine = key === 'cinematic';
     const name = isCine ? 'Cinematic' : 'Tight';
     const tagClass = isCine ? 'cine' : 'tight';
@@ -1214,12 +1382,61 @@ Respond with ONLY valid JSON in this exact shape:
       '</div>' +
       '<div class="variant-desc">' + desc + ' &middot; ' + words + ' words &middot; ' + breaks + ' breaks</div>' +
       '<div class="script-box">' + highlightScript(scriptText) + '</div>' +
+      factCardHTML(key, factCheck) +
       ladderCardHTML(key, audit) +
     '</div>';
   }
 
   // ---------- LADDER FIX LOOP ----------
   const MAX_FIX_ATTEMPTS = 4;
+  // Fact-correction loop — rewrites for accuracy, then re-verifies
+  async function runFactFix(key) {
+    if (busy || !currentResult) return;
+    const sc = currentResult.sc;
+    const variant = sc.variants[key];
+    if (!variant || !variant.factCheck) return;
+
+    busy = true;
+    let btn = document.querySelector('.factcheck[data-factcard="' + key + '"] .factcheck-fix');
+
+    try {
+      let attempt = 0;
+      while (attempt < MAX_FIX_ATTEMPTS) {
+        attempt++;
+        if (btn) {
+          btn.disabled = true;
+          btn.innerHTML = '<span class="ladder-mini-spin"></span>Correcting &amp; re-verifying (attempt ' + attempt + ')...';
+        }
+        // Rewrite for accuracy
+        const durNote = durationInstruction(key);
+        const fixRaw = await callClaude(SCRIPT_SYS,
+          factFixPrompt(sc._company, sc._factContext, durNote, variant.voice_script, variant.factCheck));
+        const fixed = parseJSON(fixRaw);
+        if (fixed.voice_script) {
+          variant.voice_script = fixed.voice_script;
+          variant._estSecs = estimateRuntime(fixed.voice_script, key);
+        }
+        // Re-verify facts, and refresh the ladder audit too (the rewrite changed the script)
+        const [fcRaw2, auditRaw2] = await Promise.all([
+          callClaude(FACTVERIFY_SYS, factVerifyPrompt(sc._company, variant.voice_script)),
+          callClaude(AUDIT_SYS, auditPrompt(sc._company, variant.voice_script))
+        ]);
+        try { variant.factCheck = parseJSON(fcRaw2); } catch(_) {}
+        try { variant.audit = parseJSON(auditRaw2); } catch(_) {}
+
+        renderResult(currentResult.fc, sc);
+        updateHistoryEntry();
+        btn = document.querySelector('.factcheck[data-factcard="' + key + '"] .factcheck-fix');
+
+        if (variant.factCheck && variant.factCheck.accuracy === 'verified') break;
+      }
+    } catch (err) {
+      const c2 = document.querySelector('.factcheck[data-factcard="' + key + '"] .factcheck-fix');
+      if (c2) { c2.disabled = false; c2.textContent = 'Correction failed — try again'; }
+    }
+    busy = false;
+  }
+
   async function runLadderFix(key) {
     if (busy || !currentResult) return;
     const sc = currentResult.sc;
@@ -1297,13 +1514,13 @@ Respond with ONLY valid JSON in this exact shape:
     if (variants.single) {
       const v = variants.single;
       const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, 'cinematic');
-      scriptsHTML = variantBlock('cinematic', v.voice_script, est, 'cinematic', v.audit);
+      scriptsHTML = variantBlock('cinematic', v.voice_script, est, 'cinematic', v.audit, v.factCheck);
     } else {
       ['cinematic','tight'].forEach(k => {
         const v = variants[k];
         if (v) {
           const est = (typeof v._estSecs === 'number') ? v._estSecs : estimateRuntime(v.voice_script, k);
-          scriptsHTML += variantBlock(k, v.voice_script, est, k, v.audit);
+          scriptsHTML += variantBlock(k, v.voice_script, est, k, v.audit, v.factCheck);
         }
       });
     }
@@ -1352,6 +1569,9 @@ Respond with ONLY valid JSON in this exact shape:
     // Wire up the "Fix weak rungs" buttons
     $('result').querySelectorAll('.ladder-fix[data-fix]').forEach(btn => {
       btn.onclick = () => runLadderFix(btn.dataset.fix);
+    });
+    $('result').querySelectorAll('.factcheck-fix[data-factfix]').forEach(btn => {
+      btn.onclick = () => runFactFix(btn.dataset.factfix);
     });
   }
 
