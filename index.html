@@ -803,9 +803,15 @@ Be strict and accurate. Only pass subjects whose collapse is genuinely historica
 CHANNEL STYLE:
 - Paradox-first hooks: open on a contradiction or shocking claim in the first sentence — never an encyclopedia-style "In [year], [company] was the leader of..." intro.
 - Declarative, ominous, true-crime-documentary tone. Serious, not playful.
-- Tell the story as: hook -> rise/dominance -> the fatal decision or hubris -> the collapse -> a dark recontextualizing final line.
+- Tell the story as: hook -> rise/dominance -> the fatal decision or hubris -> the collapse -> a dark recontextualizing line -> a closing question to the viewer.
 - Be factually accurate. Never overstate. If a brand technically still exists, acknowledge it rather than claiming total death.
 - A target length will be provided. Aim for it, but never sacrifice the story: do not pad with filler to reach a length, and do not cut a crucial beat just to stay short.
+
+MANDATORY ENDING — the script MUST end with an engagement question:
+- The final line of every voice_script must follow this pattern: "So here's the question..." followed by a short, thought-provoking question aimed directly at the viewer.
+- The question should spark comments and discussion — it can ask the viewer's opinion, invite them to relate it to today, or pose a "what would you have done" style dilemma. Examples of the FORM (adapt to each story): "So here's the question... if you ran [company] back then, would you have seen it coming?" / "So here's the question... what company today is making the exact same mistake?" / "So here's the question... was this bad luck, or pure arrogance?"
+- Keep the closing question to one or two sentences. It is ALWAYS the last thing spoken in the script.
+- You may put a delivery tag (e.g. [curious] or [thoughtful]) on the closing line, but the words "So here's the question" must appear in the final line.
 
 OUTPUT FORMAT — the voice script must be optimized for an ElevenLabs-driven Shorts Production Studio:
 - Write the spoken script with emotion/delivery tags in square brackets at the start of lines or sentences where delivery should shift, e.g. [whispers], [serious], [curious], [thoughtful], [excited], [softly]. Use them naturally, not on every line.
@@ -824,7 +830,7 @@ ${durationNote}
 Respond with ONLY valid JSON in this exact shape:
 {
   "title": "A punchy YouTube Shorts title. Format: brand name + dramatic hook. At most one emoji. Example: 'Blockbuster Netflix: The $50M Mistake'.",
-  "voice_script": "The full VO script with [emotion] tags and <break time=\\"0.5s\\" /> pacing tags. Paradox-first hook. No scene directions — pure narration only. Use real line breaks (\\n).",
+  "voice_script": "The full VO script with [emotion] tags and <break time=\\"0.5s\\" /> pacing tags. Paradox-first hook. No scene directions — pure narration only. Use real line breaks (\\n). The script MUST end with a closing engagement question: the final line begins with \\"So here's the question...\\" followed by a short, comment-sparking question to the viewer.",
   "thumbnail_overlay_brand": "The recognizable brand/company name for the thumbnail's top tier. ALL CAPS, 1-3 words.",
   "thumbnail_hook": "A punchy 3-6 word ALL CAPS declarative hook for the thumbnail's gold box. True-crime-documentary tone, not a trivia question. Example: 'THEY LAUGHED AT NETFLIX'.",
   "summary": "One sentence describing the core story, for the user's reference."
